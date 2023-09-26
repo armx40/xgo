@@ -22,7 +22,28 @@ RUN chmod +x $FETCH
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # trunk-ignore(hadolint/DL3008)
 # trunk-ignore(hadolint/DL3015)
+RUN dpkg --add-architecture armel
+RUN dpkg --add-architecture armhf
+RUN dpkg --add-architecture arm64
 RUN apt-get update -y 
+RUN apt install -y libczmq4
+RUN apt install -y libczmq-dev
+RUN apt install -y libzmq3-dev
+RUN apt install -y libsodium-dev
+RUN apt install -y libvips-dev
+RUN apt install -y libusb-dev
+RUN apt install -y libusb-1.0-0
+RUN apt install -y libusb-1.0-0-dev
+RUN apt install -y libusb-dev:arm64
+RUN apt install -y libusb-1.0-0:arm64
+RUN apt install -y libusb-1.0-0-dev:arm64
+RUN apt install -y libusb-dev:armhf
+RUN apt install -y libusb-1.0-0:armhf
+RUN apt install -y libusb-1.0-0-dev:armhf
+RUN apt install -y linux-libc-dev:armel
+RUN apt install -y libusb-dev:armel
+RUN apt install -y libusb-1.0-0:armel
+RUN apt install -y libusb-1.0-0-dev:armel
 RUN apt-get install -y automake autogen build-essential zlib1g-dev                                                                                                                   
 RUN apt-get install -y gcc-10-multilib g++-10-multilib gcc-mingw-w64 g++-mingw-w64 clang llvm-dev             
 RUN apt-get install -y gcc-10-arm-linux-gnueabi g++-10-arm-linux-gnueabi libc6-dev-armel-cross                
@@ -34,9 +55,10 @@ RUN apt-get install -y gcc-10-mips64-linux-gnuabi64 g++-10-mips64-linux-gnuabi64
 RUN apt-get install -y gcc-10-mips64el-linux-gnuabi64 g++-10-mips64el-linux-gnuabi64 libc6-dev-mips64el-cross 
 RUN apt-get install -y gcc-10-s390x-linux-gnu g++-10-s390x-linux-gnu libc6-dev-s390x-cross 
 RUN apt-get install -y gcc-10-powerpc64le-linux-gnu g++-10-powerpc64le-linux-gnu libc6-dev-powerpc-ppc64-cross 
-RUN apt-get install -y gcc-10-riscv64-linux-gnu libc6-dev-riscv64-cross clang llvm-dev libtool libxml2-dev uuid-dev libssl-dev swig default-jdk pkg-config patch make xz-utils cpio wget zip unzip p7zip git mercurial bzr texinfo help2man cmake curl mercurial openssl ca-certificates update-ca-certificates && \
-  apt-get clean && \
-  rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+RUN apt-get install -y gcc-10-riscv64-linux-gnu libc6-dev-riscv64-cross clang llvm-dev libtool libxml2-dev uuid-dev libssl-dev swig default-jdk pkg-config patch make xz-utils cpio wget zip unzip p7zip git mercurial bzr texinfo help2man cmake curl mercurial openssl ca-certificates 
+RUN apt-get clean 
+
+RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
   find /var/log -type f | while read -r f; do echo -ne '' > "$f"; done;
 
 RUN \
@@ -53,29 +75,36 @@ COPY patches /patches
 ##########################
 
 # Configure the container for OSX cross compilation
-ENV OSX_SDK MacOSX11.1.sdk
-ENV OSX_SDK_PATH https://github.com/phracker/MacOSX-SDKs/releases/download/11.0-11.1/${OSX_SDK}.tar.xz
+ENV OSX_SDK MacOSX13.sdk
+ENV OSX_SDK_PATH /MacOSX13.sdk.tar.xz
+
+COPY ./MacOSX13.sdk.tar.xz /MacOSX13.sdk.tar.xz
 
 # Make libxar known to the ld64 and cctools build
 ENV LD_LIBRARY_PATH=/osxcross/target/lib
 
-# Download the osx sdk and build the osx toolchain
+# No need to download the osx sdk and build the osx toolchain
 # We download the osx sdk, patch it and pack it again to be able to throw the patched version at osxcross
+
 RUN \
-  $FETCH $OSX_SDK_PATH 9b86eab03176c56bb526de30daa50fa819937c54b280364784ce431885341bf6 && \
+  # $FETCH $OSX_SDK_PATH cd4f08a75577145b8f05245a2975f7c81401d75e9535dcffbb879ee1deefcbf4 && \
   tar -xf "$(basename $OSX_SDK_PATH)" && rm -f "$(basename $OSX_SDK_PATH)"
-ADD patch.tar.xz $OSX_SDK/usr/include/c++
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# ADD patch.tar.xz $OSX_SDK/usr/include/c++
+# SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # trunk-ignore(hadolint/DL3003)
 RUN tar -cf - $OSX_SDK/ | xz -c - > $OSX_SDK.tar.xz && rm -rf $OSX_SDK && \
   # Get a cross compiler
-  mkdir osxcross && cd osxcross && git init && \
-  git remote add origin https://github.com/tpoechtrager/osxcross.git && \
-  git fetch --depth 1 origin 0f87f567dfaf98460244471ad6c0f4311d62079c && \
-  git checkout FETCH_HEAD && cd ../ && \
+  # mkdir osxcross && cd osxcross && git init && \
+  # git remote add origin https://github.com/tpoechtrager/osxcross.git && \
+  git clone https://github.com/tpoechtrager/osxcross.git && \
+  cd osxcross && \
+  cd .. && \
+  # git fetch --depth 1 origin 0f87f567dfaf98460244471ad6c0f4311d62079c && \
+  # git fetch --depth 1 origin  && \
+  # git checkout FETCH_HEAD && cd ../ && \
   # Move the SDK in to the cross compiler
   mv $OSX_SDK.tar.xz /osxcross/tarballs/ && \
-  # Actually build the toolchain
+  # Actually build the toolchain  
   OSX_VERSION_MIN=10.13 UNATTENDED=1 LD_LIBRARY_PATH=/osxcross/target/lib /osxcross/build.sh
 
 ENV PATH /osxcross/target/bin:$PATH
@@ -84,11 +113,11 @@ ENV PATH /osxcross/target/bin:$PATH
 # FREEBSD TOOLCHAIN BUILD #
 ###########################
 
-COPY prep_freebsd.sh /prep_freebsd.sh
-RUN chmod +x /prep_freebsd.sh && \
-  /prep_freebsd.sh
+# COPY prep_freebsd.sh /prep_freebsd.sh
+# RUN chmod +x /prep_freebsd.sh && \
+#   /prep_freebsd.sh
 
-ENV PATH /freebsdcross/x86_64-pc-freebsd12/bin:$PATH
+# ENV PATH /freebsdcross/x86_64-pc-freebsd12/bin:$PATH
 
 # Inject the new Go root distribution downloader and bootstrapper
 COPY bootstrap_pure.sh /bootstrap_pure.sh
@@ -100,4 +129,6 @@ COPY build_deps.sh /build_deps.sh
 ENV BUILD_DEPS /build_deps.sh
 RUN chmod +x $BUILD_DEPS
 
+RUN apt update
+RUN apt install -y libsqlite3-dev
 ENTRYPOINT [ "/bin/bash" ]
