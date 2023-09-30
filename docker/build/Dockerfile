@@ -43,4 +43,9 @@ RUN apt update
 RUN apt update
 RUN apt install -y libatlas-base-dev libblas-dev liblapack-dev
 
+RUN apt install -y libatlas-base-dev:arm64
+RUN apt install -y libblas-dev:arm64
+RUN apt install -y liblapack-dev:arm64
+RUN apt install -y libsqlite3-dev:arm64
+
 ENTRYPOINT ["/build.sh"]
