@@ -48,4 +48,7 @@ RUN apt install -y libblas-dev:arm64
 RUN apt install -y liblapack-dev:arm64
 RUN apt install -y libsqlite3-dev:arm64
 
+
+ADD ./libusb-macos_11.6 /libusb-macos_11.6
+
 ENTRYPOINT ["/build.sh"]
